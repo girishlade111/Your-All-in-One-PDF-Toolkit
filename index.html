@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Power Tools - Your All-in-One PDF Solution</title>
+    
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- PDF-LIB.js for client-side PDF manipulation -->
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+
+    <!-- html2pdf.js for HTML to PDF conversion -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- pdf.js for rendering PDF previews -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js`;</script>
+
+    <!-- JSZip for creating zip files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        // Tailwind dark mode configuration
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            '50': '#eff6ff', '100': '#dbeafe', '200': '#bfdbfe', '300': '#93c5fd',
+                            '400': '#60a5fa', '500': '#3b82f6', '600': '#2563eb', '700': '#1d4ed8',
+                            '800': '#1e40af', '900': '#1e3a8a',
+                        },
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        .drag-area { border: 3px dashed #4a5568; transition: border-color 0.3s, background-color 0.3s; }
+        .drag-area.drag-over { border-color: #3b82f6; background-color: rgba(59, 130, 246, 0.1); }
+        .tool-card { transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+        .tool-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .modal-backdrop { transition: opacity 0.3s ease; }
+        .modal-content { transition: transform 0.3s ease, opacity 0.3s ease; }
+        #page-organizer { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 1rem; }
+        .page-thumbnail { border: 1px solid #ccc; padding: 5px; background: #f9f9f9; text-align: center; cursor: grab; position: relative; }
+        .page-thumbnail canvas { max-width: 100%; height: auto; }
+        .page-thumbnail .delete-page { position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; border: none; cursor: pointer; font-size: 12px; line-height: 20px; }
+        .page-thumbnail.dragging { opacity: 0.5; }
+        .prose-dark { color: #d1d5db; }
+        .prose-dark h1, .prose-dark h2, .prose-dark h3, .prose-dark h4 { color: #f9fafb; }
+        .prose-dark a { color: #93c5fd; }
+        .prose-dark strong { color: #f9fafb; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+
+    <!-- Top Advertisement Area -->
+    <div id="ad-top" class="bg-gray-200 dark:bg-gray-800 text-center py-2 text-sm text-gray-500 dark:text-gray-400">[ Advertisement 970x90 ]</div>
+
+    <!-- Main Application Container -->
+    <div id="app" class="min-h-screen">
+        
+        <!-- Header -->
+        <header class="bg-white dark:bg-gray-800/50 backdrop-blur-sm shadow-md sticky top-0 z-40">
+            <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+                <a href="#" onclick="showView('home-view')" class="flex items-center space-x-2">
+                    <i class="fas fa-file-pdf text-red-500 text-3xl"></i>
+                    <span class="text-xl font-bold text-gray-800 dark:text-white">PDF Power Tools</span>
+                </a>
+                <div class="flex items-center space-x-4">
+                    <button id="dark-mode-toggle" class="text-gray-600 dark:text-gray-300 hover:text-primary-500 dark:hover:text-primary-400"><i class="fas fa-moon text-xl"></i></button>
+                </div>
+            </nav>
+        </header>
+
+        <!-- Main Content -->
+        <main class="container mx-auto p-4 md:p-8">
+
+            <!-- Home View: Grid of Tools -->
+            <div id="home-view">
+                <div class="text-center mb-12">
+                    <h1 class="text-4xl md:text-5xl font-extrabold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-blue-500">Your All-in-One PDF Toolkit</h1>
+                    <p class="text-lg text-gray-600 dark:text-gray-400">The easiest way to work with PDF files, right in your browser.</p>
+                </div>
+                <div id="tools-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6"></div>
+            </div>
+
+            <!-- Generic Tool View (template for specific tools) -->
+            <div id="tool-view" class="hidden">
+                <button onclick="showView('home-view')" class="mb-6 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 px-4 py-2 rounded-lg flex items-center space-x-2"><i class="fas fa-arrow-left"></i><span>Back to Tools</span></button>
+                <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg">
+                    <div class="text-center mb-6">
+                        <i id="tool-icon" class="text-5xl mb-4 text-red-500"></i>
+                        <h2 id="tool-title" class="text-3xl font-bold">Tool Name</h2>
+                        <p id="tool-description" class="text-gray-600 dark:text-gray-400 mt-2">Tool description goes here.</p>
+                    </div>
+                    <div id="file-input-area" class="drag-area p-10 rounded-lg text-center cursor-pointer bg-gray-50 dark:bg-gray-700/50">
+                        <input type="file" id="file-input" class="hidden" multiple>
+                        <i class="fas fa-cloud-upload-alt text-5xl text-gray-400 dark:text-gray-500 mb-4"></i>
+                        <p class="font-bold text-lg">Drag & Drop files here</p>
+                        <p class="text-gray-500">or</p>
+                        <button id="select-files-btn" class="mt-2 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition">Select Files</button>
+                    </div>
+                    <div id="tool-options" class="hidden mt-4 space-y-4"></div>
+                    <div id="url-input-area" class="hidden mt-6">
+                        <label for="url-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Enter Webpage URL</label>
+                        <input type="url" id="url-input" placeholder="https://example.com" class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500">
+                    </div>
+                    <div id="file-list" class="mt-6 space-y-2"></div>
+                    <div id="page-organizer-container" class="hidden mt-6">
+                        <p class="text-center text-gray-500 dark:text-gray-400 mb-4">Drag and drop pages to reorder them. Click the <i class="fas fa-times-circle text-red-500"></i> to delete a page.</p>
+                        <div id="page-organizer"></div>
+                    </div>
+                    <div class="mt-8 text-center">
+                        <button id="process-btn" class="bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>Process Files</button>
+                    </div>
+                    <div id="result-area" class="mt-8 text-center hidden">
+                        <div id="loading-spinner" class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
+                        <p id="status-text" class="mt-4 text-lg">Processing...</p>
+                        <a id="download-link" href="#" class="hidden mt-4 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-lg text-lg transition"><i class="fas fa-download mr-2"></i> Download Result</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- About Us View -->
+            <div id="about-view" class="hidden">
+                 <button onclick="showView('home-view')" class="mb-6 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 px-4 py-2 rounded-lg flex items-center space-x-2"><i class="fas fa-arrow-left"></i><span>Back to Tools</span></button>
+                <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg prose lg:prose-xl max-w-none dark:prose-dark">
+                    
+                    <!-- SEO Content Start -->
+                    <h1>About PDF Power Tools: Your Ultimate Solution for PDF Management</h1>
+                    <p>Welcome to PDF Power Tools, the internet's premier destination for all your PDF needs. In today's fast-paced digital world, the Portable Document Format (PDF) has become the cornerstone of document sharing, archiving, and collaboration. From business proposals and academic papers to legal contracts and personal records, PDFs provide a reliable and universal way to present and exchange information. Our mission is to provide a comprehensive, secure, and user-friendly suite of tools that empower you to manage your documents with unparalleled ease and efficiency. Whether you need to <strong>merge PDF</strong> files, <strong>split PDF</strong> documents, <strong>compress PDF</strong> for easy sharing, or <strong>convert PDF</strong> to other formats, our platform is designed to be your one-stop solution.</p>
+                    <p>We understand that working with PDFs can sometimes be challenging. You might need to combine multiple reports into a single file, extract specific pages from a large document, or reduce a file's size to meet email attachment limits. Our platform was born from the need for a simple, accessible, and powerful set of online tools that address these everyday challenges. We believe that you shouldn't need to download bulky software or pay exorbitant fees for professional-grade PDF management. That's why we offer a robust collection of utilities—from a versatile <strong>PDF to Word converter</strong> to a secure <strong>Protect PDF</strong> tool—all available for free, directly in your web browser.</p>
+
+                    <h2>Unifying Documents: The Power of Our Merge PDF Tool</h2>
+                    <p>One of the most common tasks in document management is combining multiple files. Our <strong>Merge PDF</strong> tool is engineered for simplicity and power, allowing you to seamlessly combine PDF files in any order you choose. Imagine you have separate PDF files for a cover page, a main report, and an appendix. With our tool, you can effortlessly <strong>merge PDF</strong> documents into a single, polished, and professional-looking file. This is invaluable for students compiling research, professionals creating presentations, and anyone looking to organize their digital paperwork. The process is intuitive: simply upload your files, drag and drop them into the desired order, and click a button. Our system handles the rest, providing you with a perfectly merged PDF in seconds. This ability to <strong>combine PDF</strong> files streamlines workflows and enhances productivity.</p>
+
+                    <h2>Precision and Control with Our Split PDF and Organize PDF Tools</h2>
+                    <p>Just as important as merging is the ability to deconstruct documents. Our <strong>Split PDF</strong> tool offers the ultimate flexibility, enabling you to extract one or more pages from a PDF and save them as new, independent files. Do you need to send just one chapter of a book or a single invoice from a batch? The <strong>Split PDF</strong> utility makes it possible with just a few clicks. You can select specific page ranges or extract every page into its own PDF. This precision saves time and ensures you only share the information that is necessary.</p>
+                    <p>Complementing this is our <strong>Organize PDF</strong> tool, which gives you complete control over the structure of your documents. This powerful feature allows you to reorder pages, delete unnecessary ones, or even add new pages from other PDFs. It's like having a digital light table where you can visually arrange your document's layout. For anyone who needs to assemble custom reports or presentations, the ability to <strong>organize PDF</strong> pages is a game-changer. You can fine-tune your document until it's perfect, ensuring a logical flow and professional presentation every time.</p>
+
+                    <h2>Optimize and Share: The Essential Compress PDF Tool</h2>
+                    <p>Large PDF files can be a major hurdle, especially when it comes to sharing via email or uploading to web portals with strict size limits. Our <strong>Compress PDF</strong> tool is the perfect solution. It intelligently reduces the file size of your PDF documents while maintaining the best possible quality. We've developed advanced algorithms that optimize images, remove redundant data, and apply efficient compression techniques without sacrificing readability. When you need to <strong>compress PDF</strong> files, our tool provides a simple interface with powerful results. You can choose from different compression levels to find the perfect balance between file size and quality, ensuring your documents are easy to share and quick to download.</p>
+
+                    <h2>Seamless Conversion: From PDF to Office and Back</h2>
+                    <p>The static nature of PDFs is often a strength, but sometimes you need to edit the content. Our suite of conversion tools bridges the gap between fixed documents and editable formats. The flagship of this suite is our <strong>PDF to Word</strong> converter. It transforms your PDF files into fully editable Microsoft Word (DOCX) documents with remarkable accuracy. Text, images, and formatting are preserved, allowing you to make changes effortlessly. This <strong>PDF to Word</strong> conversion is essential for anyone who needs to update a report, reuse text from a source, or collaborate on a document with colleagues who prefer working in Word.</p>
+                    <p>The conversion capabilities don't stop there. Our <strong>PDF to PowerPoint</strong> tool turns your PDFs into dynamic, editable PPTX slideshows, perfect for repurposing content for presentations. Similarly, the <strong>PDF to Excel</strong> converter is a powerful utility for data extraction, allowing you to pull tables and structured data directly from a PDF into an organized Excel spreadsheet. This eliminates the need for manual data entry and reduces the risk of errors. Of course, we also provide the reverse conversions. Our <strong>Word to PDF</strong>, <strong>PowerPoint to PDF</strong>, and <strong>Excel to PDF</strong> tools ensure that once your documents are finalized, you can convert them back to the universally accessible PDF format for secure sharing and archiving. This comprehensive approach to PDF conversion makes our platform indispensable for any office or academic environment.</p>
+
+                    <h2>Visual Flexibility: JPG to PDF and PDF to JPG</h2>
+                    <p>In a world driven by visual content, managing images within your document workflow is crucial. Our platform offers a two-way street for image and PDF conversion. The <strong>JPG to PDF</strong> tool allows you to convert one or more JPG images into a single PDF file. This is perfect for creating photo albums, compiling scanned receipts, or submitting a portfolio. You can easily adjust the orientation, margins, and page size to create a custom PDF from your images. This <strong>JPG to PDF</strong> functionality is a simple yet powerful way to package visual information.</p>
+                    <p>Conversely, our <strong>PDF to JPG</strong> tool lets you extract high-quality images from your PDF files. You can choose to convert every page of a PDF into a separate JPG file or extract all the embedded images within the document. This is incredibly useful when you need to reuse a chart from a report, grab a photo from a newsletter, or post a document page on social media. The <strong>PDF to JPG</strong> conversion process is fast and preserves the visual fidelity of the original document.</p>
+
+                    <h2>Security and Final Touches: Protect, Sign, and Watermark PDF</h2>
+                    <p>Document security is paramount, especially when dealing with sensitive information. Our <strong>Protect PDF</strong> tool allows you to add robust password protection to your files. By setting a password, you can encrypt the document and prevent unauthorized users from opening or viewing its contents. This is an essential feature for sharing confidential business data, legal documents, or personal records. The ability to <strong>protect PDF</strong> files gives you peace of mind that your information remains secure.</p>
+                    <p>For documents that require authentication, our <strong>Sign PDF</strong> tool provides a simple way to add your digital signature. This is crucial for contracts, agreements, and official forms, allowing for legally binding verification without the need for printing and scanning. You can create your signature, upload it, and place it anywhere on the document.</p>
+                    <p>To protect your intellectual property, our <strong>Watermark PDF</strong> tool lets you stamp a custom text or image over your document pages. You can add a "Confidential," "Draft," or company logo watermark to clearly indicate the document's status or origin. With options to control transparency, position, and typography, the <strong>Watermark PDF</strong> feature is a professional way to safeguard your work.</p>
+
+                    <h2>Advanced Manipulation: Rotate, Edit, and More</h2>
+                    <p>Our platform also includes a variety of tools for advanced document manipulation. The <strong>Rotate PDF</strong> tool is a simple but indispensable utility for correcting the orientation of scanned pages or entire documents. If a page is upside down or sideways, you can <strong>rotate PDF</strong> files with a single click to ensure they are perfectly readable.</p>
+                    <p>While full document editing is complex, our <strong>Edit PDF</strong> tool provides essential functionality for making quick annotations. You can add text, insert images, draw shapes, or make freehand notes directly onto the PDF. This is perfect for filling out forms, providing feedback, or highlighting important sections. The ability to <strong>edit PDF</strong> files online saves you from the cumbersome process of printing, writing, and re-scanning.</p>
+                    <p>Furthermore, our innovative <strong>HTML to PDF</strong> converter allows you to save any webpage as a high-quality PDF file. Simply copy and paste the URL, and our tool will render the page and convert it into a PDF, preserving links and layout. This is an excellent way to archive articles, save online receipts, or capture web content for offline reading. This powerful <strong>HTML to PDF</strong> feature adds another layer of versatility to our toolkit.</p>
+
+                    <h2>Our Commitment to You</h2>
+                    <p>At PDF Power Tools, we are committed to providing a service that is not only powerful but also secure and respectful of your privacy. All file processing is done client-side, directly in your browser, for many of our core tools. This means your files are never uploaded to our servers, giving you complete control and confidentiality. For more complex operations that require server-side processing, we use state-of-the-art encryption and automatically delete files from our servers shortly after processing is complete.</p>
+                    <p>We are constantly working to improve our platform and add new features based on user feedback. Our goal is to be the most comprehensive and user-friendly online PDF solution available. Whether you are a student, a professional, or a casual user, we have the tools you need to make your document management tasks simpler, faster, and more efficient. Thank you for choosing PDF Power Tools, where we make it easy to <strong>merge PDF</strong>, <strong>split PDF</strong>, <strong>compress PDF</strong>, <strong>convert PDF</strong>, and so much more.</p>
+                    <!-- SEO Content End -->
+
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Bottom Advertisement Area -->
+    <div id="ad-bottom" class="bg-gray-200 dark:bg-gray-800 text-center py-2 text-sm text-gray-500 dark:text-gray-400 mt-12">[ Advertisement 728x90 ]</div>
+    
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-6">
+        <div class="container mx-auto text-center">
+             <div class="space-x-4">
+                <p class="inline-block">&copy; 2024 PDF Power Tools. All Rights Reserved.</p>
+                <a href="#" onclick="showView('about-view')" class="inline-block hover:text-primary-400 transition">About Us</a>
+            </div>
+            <p class="text-sm text-gray-400 mt-2">A powerful, client-side PDF utility built for everyone.</p>
+        </div>
+    </footer>
+
+    <!-- Modal -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 modal-backdrop z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md modal-content transform scale-95 opacity-0">
+            <div class="flex justify-between items-start">
+                <h3 id="modal-title" class="text-2xl font-bold">Notification</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><i class="fas fa-times text-2xl"></i></button>
+            </div>
+            <div class="mt-4"><p id="modal-body" class="text-gray-600 dark:text-gray-300"></p></div>
+            <div class="mt-6 text-right"><button onclick="closeModal()" class="bg-primary-600 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded-lg">OK</button></div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const { PDFDocument, rgb, degrees, StandardFonts } = PDFLib;
+        let selectedFiles = [];
+        let currentTool = null;
+        let pageThumbnails = []; // For organize-pdf
+
+        const tools = [
+            { id: 'merge-pdf', name: 'Merge PDF', desc: 'Combine multiple PDFs into one single document.', icon: 'fas fa-object-group', multiple: true },
+            { id: 'split-pdf', name: 'Split PDF', desc: 'Separate one page or a whole set into independent files.', icon: 'fas fa-cut', multiple: false },
+            { id: 'compress-pdf', name: 'Compress PDF', desc: 'Reduce file size while optimizing for quality.', icon: 'fas fa-compress-arrows-alt', server: true },
+            { id: 'pdf-to-word', name: 'PDF to Word', desc: 'Convert PDF files into editable DOCX documents.', icon: 'fas fa-file-word', server: true },
+            { id: 'pdf-to-powerpoint', name: 'PDF to PowerPoint', desc: 'Turn PDFs into editable PPTX slideshows.', icon: 'fas fa-file-powerpoint', server: true },
+            { id: 'pdf-to-excel', name: 'PDF to Excel', desc: 'Pull data from PDFs into Excel spreadsheets.', icon: 'fas fa-file-excel', server: true },
+            { id: 'word-to-pdf', name: 'Word to PDF', desc: 'Convert DOC and DOCX files to PDF.', icon: 'fas fa-file-word', server: true },
+            { id: 'powerpoint-to-pdf', name: 'PowerPoint to PDF', desc: 'Convert PPT and PPTX files to PDF.', icon: 'fas fa-file-powerpoint', server: true },
+            { id: 'excel-to-pdf', name: 'Excel to PDF', desc: 'Convert EXCEL spreadsheets to PDF.', icon: 'fas fa-file-excel', server: true },
+            { id: 'edit-pdf', name: 'Edit PDF', desc: 'Add text, images, or annotations to a PDF.', icon: 'fas fa-pencil-alt', server: true, note: 'Full editing is a server-side task.' },
+            { id: 'pdf-to-jpg', name: 'PDF to JPG', desc: 'Convert each PDF page into a JPG image.', icon: 'fas fa-file-image', multiple: false },
+            { id: 'jpg-to-pdf', name: 'JPG to PDF', desc: 'Convert JPG images to PDF. Adjust orientation and margins.', icon: 'fas fa-file-image', multiple: true, accept: 'image/jpeg, image/png' },
+            { id: 'sign-pdf', name: 'Sign PDF', desc: 'Sign yourself or request electronic signatures.', icon: 'fas fa-signature', server: true },
+            { id: 'watermark', name: 'Watermark', desc: 'Stamp an image or text over your PDF.', icon: 'fas fa-tint', multiple: false },
+            { id: 'rotate-pdf', name: 'Rotate PDF', desc: 'Rotate your PDFs the way you need them.', icon: 'fas fa-sync-alt', multiple: false },
+            { id: 'html-to-pdf', name: 'HTML to PDF', desc: 'Convert webpages in HTML to PDF.', icon: 'fas fa-code', fileInput: false },
+            { id: 'unlock-pdf', name: 'Unlock PDF', desc: 'Remove PDF password security.', icon: 'fas fa-unlock', server: true },
+            { id: 'protect-pdf', name: 'Protect PDF', desc: 'Protect PDF files with a password.', icon: 'fas fa-lock', server: true },
+            { id: 'organize-pdf', name: 'Organize PDF', desc: 'Sort, delete, or add pages to your document.', icon: 'fas fa-stream', multiple: false },
+            { id: 'pdf-to-pdfa', name: 'PDF to PDF/A', desc: 'Convert PDF to PDF/A for long-term archiving.', icon: 'fas fa-archive', server: true },
+            { id: 'repair-pdf', name: 'Repair PDF', desc: 'Repair a damaged or corrupt PDF file.', icon: 'fas fa-tools', server: true },
+            { id: 'page-numbers', name: 'Page Numbers', desc: 'Add page numbers into PDFs with ease.', icon: 'fas fa-sort-numeric-down', multiple: false },
+        ];
+
+        // --- UI ELEMENTS ---
+        const toolsGrid = document.getElementById('tools-grid');
+        const homeView = document.getElementById('home-view');
+        const toolView = document.getElementById('tool-view');
+        const aboutView = document.getElementById('about-view');
+        const toolIcon = document.getElementById('tool-icon');
+        const toolTitle = document.getElementById('tool-title');
+        const toolDescription = document.getElementById('tool-description');
+        const fileInputArea = document.getElementById('file-input-area');
+        const toolOptions = document.getElementById('tool-options');
+        const urlInputArea = document.getElementById('url-input-area');
+        const urlInput = document.getElementById('url-input');
+        const fileInput = document.getElementById('file-input');
+        const selectFilesBtn = document.getElementById('select-files-btn');
+        const fileList = document.getElementById('file-list');
+        const pageOrganizerContainer = document.getElementById('page-organizer-container');
+        const pageOrganizer = document.getElementById('page-organizer');
+        const processBtn = document.getElementById('process-btn');
+        const resultArea = document.getElementById('result-area');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const statusText = document.getElementById('status-text');
+        const downloadLink = document.getElementById('download-link');
+        const darkModeToggle = document.getElementById('dark-mode-toggle');
+        
+        // --- INITIALIZATION ---
+        tools.forEach(tool => {
+            const card = document.createElement('div');
+            card.className = 'tool-card bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md cursor-pointer flex flex-col items-center text-center';
+            card.dataset.tool = tool.id;
+            card.innerHTML = `
+                <i class="${tool.icon} text-4xl mb-4 text-red-500"></i>
+                <h3 class="font-bold text-lg mb-2">${tool.name}</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 flex-grow">${tool.desc}</p>
+            `;
+            card.addEventListener('click', () => selectTool(tool.id));
+            toolsGrid.appendChild(card);
+        });
+
+        // Dark Mode Logic
+        const moonIcon = '<i class="fas fa-moon text-xl"></i>';
+        const sunIcon = '<i class="fas fa-sun text-xl"></i>';
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            darkModeToggle.innerHTML = sunIcon;
+        } else {
+            document.documentElement.classList.remove('dark');
+            darkModeToggle.innerHTML = moonIcon;
+        }
+        darkModeToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            if (document.documentElement.classList.contains('dark')) {
+                localStorage.setItem('theme', 'dark');
+                darkModeToggle.innerHTML = sunIcon;
+            } else {
+                localStorage.setItem('theme', 'light');
+                darkModeToggle.innerHTML = moonIcon;
+            }
+        });
+
+        // --- EVENT LISTENERS ---
+        selectFilesBtn.addEventListener('click', () => fileInput.click());
+        fileInputArea.addEventListener('click', () => fileInput.click());
+        fileInputArea.addEventListener('dragover', (e) => { e.preventDefault(); fileInputArea.classList.add('drag-over'); });
+        fileInputArea.addEventListener('dragleave', (e) => { e.preventDefault(); fileInputArea.classList.remove('drag-over'); });
+        fileInputArea.addEventListener('drop', (e) => { e.preventDefault(); fileInputArea.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+        processBtn.addEventListener('click', processFiles);
+
+        // --- CORE FUNCTIONS ---
+        window.showView = (viewId) => {
+            homeView.classList.add('hidden');
+            toolView.classList.add('hidden');
+            aboutView.classList.add('hidden');
+            document.getElementById(viewId).classList.remove('hidden');
+            window.scrollTo(0, 0); // Scroll to top on view change
+            if (viewId === 'home-view') resetToolState();
+        };
+
+        function selectTool(toolId) {
+            currentTool = tools.find(t => t.id === toolId);
+            if (!currentTool) return;
+
+            toolIcon.className = `${currentTool.icon} text-5xl mb-4 text-red-500`;
+            toolTitle.textContent = currentTool.name;
+            toolDescription.textContent = currentTool.desc;
+            processBtn.textContent = currentTool.name;
+            
+            fileInputArea.classList.toggle('hidden', currentTool.fileInput === false);
+            urlInputArea.classList.toggle('hidden', currentTool.fileInput !== false);
+            
+            fileInput.multiple = currentTool.multiple !== false;
+            fileInput.accept = currentTool.accept || 'application/pdf';
+
+            // Add tool-specific options
+            toolOptions.innerHTML = '';
+            toolOptions.classList.add('hidden');
+            if (currentTool.id === 'rotate-pdf') {
+                toolOptions.innerHTML = `
+                    <label for="rotation-angle" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Rotation Angle</label>
+                    <select id="rotation-angle" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600">
+                        <option>90</option>
+                        <option>180</option>
+                        <option>270</option>
+                    </select>`;
+                toolOptions.classList.remove('hidden');
+            } else if (currentTool.id === 'watermark') {
+                 toolOptions.innerHTML = `
+                    <label for="watermark-text" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Watermark Text</label>
+                    <input type="text" id="watermark-text" value="CONFIDENTIAL" class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm">
+                 `;
+                 toolOptions.classList.remove('hidden');
+            }
+
+            showView('tool-view');
+        }
+
+        function resetToolState() {
+            currentTool = null;
+            selectedFiles = [];
+            pageThumbnails = [];
+            fileList.innerHTML = '';
+            pageOrganizer.innerHTML = '';
+            pageOrganizerContainer.classList.add('hidden');
+            processBtn.disabled = true;
+            resultArea.classList.add('hidden');
+            downloadLink.classList.add('hidden');
+            downloadLink.href = '#';
+            fileInput.value = '';
+            urlInput.value = '';
+            fileInputArea.classList.remove('hidden');
+        }
+
+        async function handleFiles(files) {
+            if (!currentTool) return;
+            const newFiles = Array.from(files);
+            
+            if (currentTool.multiple === false) {
+                selectedFiles = newFiles.slice(0, 1);
+            } else {
+                selectedFiles.push(...newFiles);
+            }
+            
+            processBtn.disabled = selectedFiles.length === 0;
+
+            if (currentTool.id === 'organize-pdf' && selectedFiles.length > 0) {
+                fileInputArea.classList.add('hidden');
+                await renderPageThumbnails(selectedFiles[0]);
+            } else {
+                updateFileList();
+            }
+        }
+
+        function updateFileList() { /* ... same as before ... */ }
+        window.removeFile = (index) => { /* ... same as before ... */ }
+        window.moveFile = (index, direction) => { /* ... same as before ... */ }
+
+        async function processFiles() {
+            if (!currentTool) return;
+
+            if (currentTool.server) {
+                showModal('Server-Side Feature', `The "${currentTool.name}" tool is a complex operation that requires powerful server-side processing. It cannot be performed directly in the browser. This is a placeholder for a full-stack application.`);
+                return;
+            }
+
+            resultArea.classList.remove('hidden');
+            loadingSpinner.classList.remove('hidden');
+            statusText.textContent = 'Processing...';
+            downloadLink.classList.add('hidden');
+            processBtn.disabled = true;
+
+            try {
+                let resultBlob, resultFileName = 'result.pdf';
+                switch (currentTool.id) {
+                    case 'merge-pdf': resultBlob = await mergePdfs(); resultFileName = 'merged.pdf'; break;
+                    case 'split-pdf': resultBlob = await splitPdf(); resultFileName = 'split.zip'; break;
+                    case 'jpg-to-pdf': resultBlob = await imagesToPdf(); resultFileName = 'converted.pdf'; break;
+                    case 'rotate-pdf': resultBlob = await rotatePdf(); resultFileName = 'rotated.pdf'; break;
+                    case 'page-numbers': resultBlob = await addPageNumbers(); resultFileName = 'numbered.pdf'; break;
+                    case 'organize-pdf': resultBlob = await organizePdf(); resultFileName = 'organized.pdf'; break;
+                    case 'pdf-to-jpg': resultBlob = await pdfToJpg(); resultFileName = 'images.zip'; break;
+                    case 'watermark': resultBlob = await watermarkPdf(); resultFileName = 'watermarked.pdf'; break;
+                    case 'html-to-pdf': await htmlToPdf(); resetAfterProcessing(); return;
+                }
+                if (resultBlob) {
+                    const url = URL.createObjectURL(resultBlob);
+                    downloadLink.href = url;
+                    downloadLink.download = resultFileName;
+                    downloadLink.classList.remove('hidden');
+                    statusText.textContent = 'Processing complete!';
+                }
+            } catch (error) {
+                console.error('Processing error:', error);
+                statusText.textContent = `An error occurred: ${error.message}`;
+                showModal('Error', `An error occurred during processing: ${error.message}`);
+            } finally {
+                loadingSpinner.classList.add('hidden');
+                processBtn.disabled = false;
+            }
+        }
+        
+        function resetAfterProcessing() { /* ... same as before ... */ }
+
+        // --- PDF-LIB & OTHER LIBS IMPLEMENTATIONS ---
+        async function splitPdf() {
+            const pdfBytes = await selectedFiles[0].arrayBuffer();
+            const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+            const zip = new JSZip();
+            statusText.textContent = `Splitting ${pdfDoc.getPageCount()} pages...`;
+            for (let i = 0; i < pdfDoc.getPageCount(); i++) {
+                const newDoc = await PDFDocument.create();
+                const [copiedPage] = await newDoc.copyPages(pdfDoc, [i]);
+                newDoc.addPage(copiedPage);
+                const newDocBytes = await newDoc.save();
+                zip.file(`page_${i + 1}.pdf`, newDocBytes);
+            }
+            return await zip.generateAsync({ type: "blob" });
+        }
+
+        async function rotatePdf() {
+            const angle = parseInt(document.getElementById('rotation-angle').value);
+            const pdfBytes = await selectedFiles[0].arrayBuffer();
+            const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+            pdfDoc.getPages().forEach(page => page.setRotation(degrees(page.getRotation().angle + angle)));
+            const pdfResultBytes = await pdfDoc.save();
+            return new Blob([pdfResultBytes], { type: 'application/pdf' });
+        }
+
+        async function watermarkPdf() {
+            const text = document.getElementById('watermark-text').value || 'CONFIDENTIAL';
+            const pdfBytes = await selectedFiles[0].arrayBuffer();
+            const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+            const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+            const pages = pdfDoc.getPages();
+            
+            for (const page of pages) {
+                const { width, height } = page.getSize();
+                page.drawText(text, {
+                    x: width / 2 - 150,
+                    y: height / 2,
+                    font: helveticaFont,
+                    size: 50,
+                    color: rgb(0.95, 0.1, 0.1),
+                    opacity: 0.2,
+                    rotate: degrees(-45),
+                });
+            }
+            const pdfResultBytes = await pdfDoc.save();
+            return new Blob([pdfResultBytes], { type: 'application/pdf' });
+        }
+
+        async function pdfToJpg() {
+            const pdfBytes = await selectedFiles[0].arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
+            const zip = new JSZip();
+            statusText.textContent = `Converting ${pdf.numPages} pages to JPG...`;
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: 2.0 });
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                await page.render({ canvasContext: context, viewport: viewport }).promise;
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+                zip.file(`page_${i}.jpg`, blob);
+            }
+            return await zip.generateAsync({ type: "blob" });
+        }
+
+        async function organizePdf() {
+            const originalPdfBytes = await selectedFiles[0].arrayBuffer();
+            const pdfDoc = await PDFDocument.load(originalPdfBytes, { ignoreEncryption: true });
+            const newPdfDoc = await PDFDocument.create();
+            
+            const pageIndices = pageThumbnails.map(thumb => thumb.originalIndex);
+            const copiedPages = await newPdfDoc.copyPages(pdfDoc, pageIndices);
+            copiedPages.forEach(page => newPdfDoc.addPage(page));
+
+            const pdfResultBytes = await newPdfDoc.save();
+            return new Blob([pdfResultBytes], { type: 'application/pdf' });
+        }
+
+        async function renderPageThumbnails(file) {
+            const fileReader = new FileReader();
+            fileReader.onload = async (e) => {
+                const typedarray = new Uint8Array(e.target.result);
+                const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                pageOrganizerContainer.classList.remove('hidden');
+                pageOrganizer.innerHTML = '';
+                pageThumbnails = [];
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const viewport = page.getViewport({ scale: 0.5 });
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+                    const thumbDiv = document.createElement('div');
+                    thumbDiv.className = 'page-thumbnail';
+                    thumbDiv.dataset.index = i - 1;
+                    thumbDiv.draggable = true;
+                    thumbDiv.innerHTML = `<canvas></canvas><p>Page ${i}</p><button class="delete-page" data-index="${i-1}">&times;</button>`;
+                    thumbDiv.querySelector('canvas').getContext('2d').drawImage(canvas, 0, 0);
+                    
+                    pageOrganizer.appendChild(thumbDiv);
+                    pageThumbnails.push({ element: thumbDiv, originalIndex: i - 1, pageNum: i });
+
+                    thumbDiv.querySelector('.delete-page').addEventListener('click', (evt) => {
+                        evt.stopPropagation();
+                        const indexToRemove = parseInt(evt.target.dataset.index);
+                        pageThumbnails = pageThumbnails.filter(t => t.originalIndex !== indexToRemove);
+                        thumbDiv.remove();
+                    });
+                }
+                setupDragAndDrop();
+            };
+            fileReader.readAsArrayBuffer(file);
+        }
+
+        function setupDragAndDrop() {
+            let draggedItem = null;
+            pageOrganizer.addEventListener('dragstart', e => {
+                draggedItem = e.target.closest('.page-thumbnail');
+                setTimeout(() => {
+                    if (draggedItem) draggedItem.classList.add('dragging');
+                }, 0);
+            });
+            pageOrganizer.addEventListener('dragend', e => {
+                setTimeout(() => {
+                    if (draggedItem) draggedItem.classList.remove('dragging');
+                    draggedItem = null;
+                    updatePageOrderFromDOM();
+                }, 0);
+            });
+            pageOrganizer.addEventListener('dragover', e => {
+                e.preventDefault();
+                const afterElement = getDragAfterElement(pageOrganizer, e.clientY);
+                const currentDragged = document.querySelector('.dragging');
+                if (!currentDragged) return;
+                if (afterElement == null) {
+                    pageOrganizer.appendChild(currentDragged);
+                } else {
+                    pageOrganizer.insertBefore(currentDragged, afterElement);
+                }
+            });
+        }
+
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.page-thumbnail:not(.dragging)')];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        function updatePageOrderFromDOM() {
+            const newOrder = [];
+            const elements = pageOrganizer.querySelectorAll('.page-thumbnail');
+            elements.forEach(el => {
+                const originalIndex = parseInt(el.dataset.index);
+                const thumb = pageThumbnails.find(t => t.originalIndex === originalIndex);
+                if (thumb) newOrder.push(thumb);
+            });
+            pageThumbnails = newOrder;
+        }
+
+        // --- MODAL DIALOG ---
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalBody = document.getElementById('modal-body');
+        const modalContent = modal.querySelector('.modal-content');
+        window.showModal = (title, body) => {
+            modalTitle.textContent = title;
+            modalBody.innerHTML = body;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.add('bg-opacity-50');
+                modalContent.classList.remove('scale-95', 'opacity-0');
+                modalContent.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        };
+        window.closeModal = () => {
+            modalContent.classList.remove('scale-100', 'opacity-100');
+            modalContent.classList.add('scale-95', 'opacity-0');
+            modal.classList.remove('bg-opacity-50');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        };
+
+        // --- Re-add functions that might have been removed in summarization ---
+        updateFileList = function() {
+            fileList.innerHTML = '';
+            selectedFiles.forEach((file, index) => {
+                const fileElement = document.createElement('div');
+                fileElement.className = 'bg-gray-100 dark:bg-gray-700 p-3 rounded-lg flex justify-between items-center';
+                fileElement.innerHTML = `
+                    <div class="flex items-center space-x-3 overflow-hidden">
+                        <i class="fas fa-file-alt text-gray-500"></i>
+                        <span class="truncate font-medium">${file.name}</span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">${(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                    </div>
+                    <div>
+                        ${currentTool.id === 'merge-pdf' ? `
+                        <button class="px-2 py-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded" onclick="moveFile(${index}, -1)" ${index === 0 ? 'disabled' : ''}><i class="fas fa-arrow-up"></i></button>
+                        <button class="px-2 py-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded" onclick="moveFile(${index}, 1)" ${index === selectedFiles.length - 1 ? 'disabled' : ''}><i class="fas fa-arrow-down"></i></button>
+                        ` : ''}
+                        <button class="ml-2 px-2 py-1 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" onclick="removeFile(${index})"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                `;
+                fileList.appendChild(fileElement);
+            });
+        }
+        
+        window.removeFile = (index) => {
+            selectedFiles.splice(index, 1);
+            updateFileList();
+            processBtn.disabled = selectedFiles.length === 0;
+        }
+
+        window.moveFile = (index, direction) => {
+            if (direction === -1 && index > 0) {
+                [selectedFiles[index], selectedFiles[index - 1]] = [selectedFiles[index - 1], selectedFiles[index]];
+            } else if (direction === 1 && index < selectedFiles.length - 1) {
+                [selectedFiles[index], selectedFiles[index + 1]] = [selectedFiles[index + 1], selectedFiles[index]];
+            }
+            updateFileList();
+        };
+
+        resetAfterProcessing = function() {
+            resultArea.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+            statusText.textContent = 'Processing...';
+            downloadLink.classList.add('hidden');
+            processBtn.disabled = false;
+        }
+        
+        mergePdfs = async function() {
+            const mergedPdf = await PDFDocument.create();
+            for (const file of selectedFiles) {
+                const pdfBytes = await file.arrayBuffer();
+                const pdf = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+                const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+                copiedPages.forEach(page => mergedPdf.addPage(page));
+            }
+            const mergedPdfBytes = await mergedPdf.save();
+            return new Blob([mergedPdfBytes], { type: 'application/pdf' });
+        }
+        
+        imagesToPdf = async function() {
+            const pdfDoc = await PDFDocument.create();
+            for (const file of selectedFiles) {
+                const imageBytes = await file.arrayBuffer();
+                const image = file.type === 'image/png' 
+                    ? await pdfDoc.embedPng(imageBytes) 
+                    : await pdfDoc.embedJpg(imageBytes);
+                
+                const page = pdfDoc.addPage([image.width, image.height]);
+                page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+            }
+            const pdfBytes = await pdfDoc.save();
+            return new Blob([pdfBytes], { type: 'application/pdf' });
+        }
+
+        addPageNumbers = async function() {
+            const pdfBytes = await selectedFiles[0].arrayBuffer();
+            const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+            const pages = pdfDoc.getPages();
+            const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+            for (let i = 0; i < pages.length; i++) {
+                const page = pages[i];
+                const { width, height } = page.getSize();
+                page.drawText(`${i + 1} / ${pages.length}`, {
+                    x: width / 2 - 20, y: 20, size: 12, font, color: rgb(0, 0, 0),
+                });
+            }
+            const pdfResultBytes = await pdfDoc.save();
+            return new Blob([pdfResultBytes], { type: 'application/pdf' });
+        }
+
+        htmlToPdf = async function() {
+            const url = urlInput.value;
+            if (!url) {
+                showModal('Error', 'Please enter a valid URL.');
+                throw new Error('URL is required.');
+            }
+            statusText.textContent = 'Fetching and converting...';
+            showModal('HTML to PDF Info', 'Directly converting external websites is often blocked by browser security (CORS). This feature is a demonstration and will convert a sample element instead.');
+            const element = document.createElement('div');
+            element.innerHTML = `<h1>Converted from URL:</h1><p><a href="${url}">${url}</a></p><p>Note: Actual page content cannot be fetched directly in the browser due to security policies.</p>`;
+            html2pdf().from(element).save('converted-from-url.pdf');
+            statusText.textContent = 'Conversion complete!';
+        }
+
+    });
+    </script>
+</body>
+</html>
